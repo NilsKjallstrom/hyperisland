@@ -77,7 +77,7 @@ FROM
         1000
       ) AS engagement_time_seconds
     FROM
-      `individualproject-398014.analytics_401142256.events_*`
+      `my_schema`
     WHERE
       _TABLE_SUFFIX BETWEEN '20230903' AND '20230914'
     GROUP BY
