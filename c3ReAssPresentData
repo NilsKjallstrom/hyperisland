@@ -1,0 +1,109 @@
+-- calculate which keywords were most popular.
+--> already available in Looker on KW and campaign performance.
+select *
+from `analytics_xxxxxx.ads_ClickStats_xxxxxx`
+
+
+##### how many clicks have come from Stockholm #####
+-- calculate the most popular keywords outside and inside Stockholm. (filter in Looker)
+select Criteria_ID, Name, c.click_view_keyword_info_text, c._DATA_DATE
+from `analytics_xxxxxx.geoTargetLocation` t
+right outer join `analytics_xxxxxx.ads_ClickStats_xxxxxx` c
+on 'geoTargetConstants/' || t.Criteria_ID = c.click_view_location_of_presence_region
+order by c._DATA_DATE asc
+--WHERE
+ -- c.click_view_location_of_presence_region != 'geoTargetConstants/21000'
+--where click_view_keyword_info_text is not null
+
+---5 nulls on keywordname. 
+SELECT t.Criteria_ID, t.Name, c.click_view_keyword_info_text, c._DATA_DATE
+FROM `analytics_xxxxxx.geoTargetLocation` t
+right OUTER JOIN `analytics_xxxxxx.ads_ClickStats_xxxxxx` c
+ON 'geoTargetConstants/' || t.Criteria_ID = c.click_view_location_of_presence_region
+WHERE c.click_view_location_of_presence_region IS NOT NULL
+  AND c.click_view_keyword_info_text IS NULL
+order by c._DATA_DATE asc
+
+--- 11 nulls on names.
+SELECT t.Criteria_ID, t.Name, c.click_view_keyword_info_text, c._DATA_DATE
+FROM `analytics_xxxxxx.geoTargetLocation` t
+right OUTER JOIN `analytics_xxxxxx.ads_ClickStats_xxxxxx` c
+ON 'geoTargetConstants/' || t.Criteria_ID = c.click_view_location_of_presence_region
+WHERE c.click_view_location_of_presence_region IS NULL
+  AND c.click_view_keyword_info_text IS NOT NULL
+order by c._DATA_DATE asc
+
+#### calculate the cost per click per region ####
+-- insight = must make sure to exclude "Sweden" in campaignlocationtargetstats. and that this is the explanation for why so many unwanted orders got exposure for the campaign
+-- can save 6158 SEK by explicitly targeting Uppsala and Stockholm.
+SELECT
+  t.Name,
+  ROUND(SUM(metrics_cost_micros) / 1000000, 2) AS total_cost
+FROM
+  `analytics_xxxxxx.ads_CampaignLocationTargetStats_xxxxxx` as l
+join `analytics_xxxxxx.geoTargetLocation` as t
+on l.campaign_criterion_criterion_id = t.Criteria_ID
+group by t.Name
+order by total_cost desc;
+
+
+-- do I want to know what it cost per keyword + region, like "renovation" from Västmanland costs"?
+----> I can't see what a specific keyword has cost me, or what it has cost per location since cost data only has my target location. Because in clickstats, they have different geotargetlocations that don't exist in campaignlocationtargetstats
+
+click_view_location_of_presence_region (join?), click_view_gclid?
+select distinct t.Name, l.metrics_cost_micros, l.metrics_ctr, l.metrics_impressions, l.metrics_clicks, c._DATA_DATE
+from `analytics_xxxxxx.ads_ClickStats_xxxxxx` as c
+join `analytics_xxxxxx.ads_CampaignLocationTargetStats_xxxxxx` as l
+on c.click_view_location_of_presence_region = 'geoTargetConstants/' || l.campaign_criterion_criterion_id
+join `analytics_xxxxxx.geoTargetLocation` as t
+on l.campaign_criterion_criterion_id = t.Criteria_ID
+order by c._DATA_DATE asc
+
+`analytics_xxxxxx.geoTargetLocation`
+-- for the presentation, I will describe how this has given me insights into how people use the website.
+-- investigate engagement on the website with date intervals.
+
+
+
+--##### counting total clicks and impressions ######
+select sum(sum_metrics_clicks) as sum_of_clicks, sum(sum_metrics_impressions) as sum_of_impressions
+from(
+select 
+SUM(metrics_clicks) as sum_metrics_clicks,
+sum(metrics_impressions) as sum_metrics_impressions, _DATA_DATE, segments_device
+from `analytics_xxxxxx.ads_AdBasicStats_xxxxxx`
+group by segments_device, _DATA_DATE
+order by _DATA_DATE)
+
+--##### counting clicks and impressions per day. #######
+select 
+SUM(metrics_clicks) as sum_metrics_clicks, 
+sum(metrics_impressions) as sum_metrics_impressions, _DATA_DATE
+from `analytics_xxxxxx.ads_AdBasicStats_xxxxxx`
+group by _DATA_DATE
+order by _DATA_DATE
+
+####### extract data to show how the campaigns perform comparatively #####
+SELECT
+  campaign_name, 
+  SUM(metrics_clicks) AS total_clicks,
+  SUM(metrics_all_conversions) AS total_conversions,
+  SUM(metrics_all_conversions_value) AS total_conversion_value,
+  ROUND(SUM(metrics_average_cpc/1000000), 2) AS metrics_avg_cpc,
+  ROUND(SUM(metrics_clicks * metrics_average_cpc/1000000),2) as total_date_cost,
+  _DATA_DATE
+FROM `analytics_xxxxxx.ads_BudgetStats_xxxxxx`
+GROUP BY campaign_name, _DATA_DATE
+ORDER BY _DATA_DATE ASC;
+
+-- Below query, how can I distinctify the dates and count the amount of times that keyword was used that particular date.
+####### use to display the number of times a keyword is used per date. ############# leave device for filtering. 
+--KW_frequency_date--
+SELECT
+  click_view_keyword_info_text,
+  _DATA_DATE,
+  segments_device,
+  COUNT(*) AS keyword_count_per_date
+FROM `analytics_xxxxxx.ads_ClickStats_xxxxxx` AS Clicks
+GROUP BY click_view_keyword_info_text, _DATA_DATE, segments_device
+ORDER BY _DATA_DATE ASC;
