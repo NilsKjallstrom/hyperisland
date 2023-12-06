@@ -1,0 +1,90 @@
+--total clicks to guide data accuracy:
+select count(distinct click_view_gclid) as amount_of_clicks
+from `analytics_xxxxxx.ads_ClickStats_xxxxxx`
+
+-- CampaignLocationTargetStats, seems interesting to be able to see cost per date/city.
+---> so, I want to check if Google Ads aggregates cost per country and then breaks it down per city, per day.
+## I can use the table below to extract costs and join on criterion ID per date to get average + total cost.
+select *
+from `analytics_xxxxxx.ads_CampaignLocationTargetStats_xxxxxx`
+limit 10
+
+--campaign_criterion_criterion_id = Criteria ID in Google Geo-target table.
+--geo-target columns
+select *
+from `analytics_xxxxxx.geoTargetLocation`
+limit 10
+
+--joining geo-target
+--23 matches
+SELECT  distinct (t2.Name), t1.click_view_location_of_presence_region
+FROM `analytics_xxxxxx.ads_ClickStats_xxxxxx` AS t1
+JOIN `analytics_xxxxxx.geoTargetLocation` AS t2
+ON t1.click_view_location_of_presence_region = 'geoTargetConstants/' || t2.Criteria_ID
+--WHERE t2.Name = 'Stockholm County'
+
+--getting the names of most specific!
+SELECT  distinct (t2.Name), t1.click_view_location_of_presence_most_specific
+FROM `analytics_xxxxxx.ads_ClickStats_xxxxxx` AS t1
+JOIN `analytics_xxxxxx.geoTargetLocation` AS t2
+ON t1.click_view_location_of_presence_most_specific = 'geoTargetConstants/' || t2.Criteria_ID
+
+--exploring costs per region.
+--apparently regions included in the camp.loc.targ.stats table only refer to the TARGETED, and for some reason I had whole of Sweden as a target.
+select t2.Name, t2.Canonical_Name, t1.metrics_average_cost,t1.metrics_impressions, t1.metrics_clicks, t1.metrics_cost_micros, t1.metrics_ctr, t1._DATA_DATE
+from `analytics_xxxxxx.ads_CampaignLocationTargetStats_xxxxxx` as t1
+JOIN `analytics_xxxxxx.geoTargetLocation` as t2
+ON t1.campaign_criterion_criterion_id = t2.Criteria_ID
+order by t1._DATA_DATE asc
+ 
+
+-- investigate which columns can be joined on. `analytics_xxxxxx.ads_ClickStats_6682792847`,  `analytics_xxxxxx.geoTargetLocation` , `analytics_xxxxxx.ads_CampaignLocationTargetStats_xxxxxx`.
+
+--click_view_location_of_presence_city, click_view_location_of_presence_country, click_view_location_of_presence_most_specific, click_view_location_of_presence_region, _DATA_DATE
+select *
+from `analytics_xxxxxx.ads_ClickStats_xxxxxx`
+limit 10
+
+--campaign target criterion
+select *
+from `analytics_xxxxxx.ads_CampaignLocationTargetStats_xxxxxx`
+
+--criteria ID.
+select *
+from `analytics_xxxxxx.geoTargetLocation`
+
+
+-- I would start with geoTargetLocation, join with campaignLocationTargetStats, and then join in clickstats last.
+-- explore in clickstats where there are matches on location data and how granular it can be done.
+-- click_view_gclid should be used to identify unique clicks but becomes a problem when the same location data is not present in campaignLocationTargetStats.
+select 
+t1.Name,    
+sum(t2.metrics_impressions), 
+sum(t2.metrics_clicks),
+t2._DATA_DATE
+from `analytics_xxxxxx.geoTargetLocation` as t1
+join `analytics_xxxxxx.ads_CampaignLocationTargetStats_6682792847` as t2
+ON t1.Criteria_ID = t2.campaign_criterion_criterion_id
+join `analytics_xxxxxx.ads_ClickStats_6682792847` as t3
+ON t3.click_view_location_of_presence_region = 'geoTargetConstants/' || t1.Criteria_ID
+group by t2._DATA_DATE, t1.Name
+
+
+
+---trying another join to obtain same goal as above, with no success. 
+--it appears to me that I will have a hard time getting the average cost for a particular keyword/region
+select 
+distinct(t1.click_view_gclid),
+t3.Name,  
+t2.metrics_average_cost, 
+t2.metrics_cost_micros, 
+t2.metrics_ctr, 
+t2.metrics_impressions, 
+t2.metrics_clicks,
+t1.click_view_keyword_info_text,
+t1._DATA_DATE
+from `analytics_xxxxxx.ads_ClickStats_xxxxxx` as t1
+join `analytics_xxxxxx.ads_CampaignLocationTargetStats_xxxxxx` as t2
+ON t1.click_view_location_of_presence_most_specific = 'geoTargetConstants/' || t2.campaign_criterion_criterion_id
+join `analytics_xxxxxx.geoTargetLocation` as t3
+ON t3.Criteria_ID = t2.campaign_criterion_criterion_id
