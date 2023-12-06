@@ -1,0 +1,70 @@
+select distinct user_pseudo_id, parsed_event_date, event_name
+from `analytics_xxxxxx.new_events`
+order by parsed_event_date;
+
+
+select count(distinct event_name), user_pseudo_id, parsed_event_date
+from `analytics_xxxxxx.new_events`
+group by user_pseudo_id
+--order by parsed_event_date;
+
+SELECT user_pseudo_id, parsed_event_date, event_name, COUNT(event_name) AS event_count
+FROM `analytics_xxxxxx.new_events`
+GROUP BY user_pseudo_id, parsed_event_date, event_name
+ORDER BY parsed_event_date, user_pseudo_id;
+
+--how many sessionstarts per user
+SELECT user_pseudo_id, parsed_event_date, event_name, COUNT(event_name) AS event_count
+FROM `analytics_xxxxxx.new_events`
+where event_name = 'session_start'
+GROUP BY user_pseudo_id, parsed_event_date, event_name
+ORDER BY event_count desc;
+
+SELECT user_pseudo_id, parsed_event_date, event_name, COUNT(event_name) AS event_count
+FROM `analytics_xxxxxx.new_events`
+--where event_name = 'session_start'
+GROUP BY user_pseudo_id, parsed_event_date, event_name
+ORDER BY event_count desc;
+
+--removed event name
+SELECT distinct user_pseudo_id, parsed_event_date, COUNT(event_name) AS event_count
+FROM `analytics_xxxxxx.new_events`
+--where event_name = 'session_start'
+GROUP BY user_pseudo_id, parsed_event_date, event_name
+ORDER BY event_count desc;
+
+--nested query so count events for useres more than 2
+SELECT user_pseudo_id, parsed_event_date, event_count, event_name
+FROM (
+  SELECT user_pseudo_id, parsed_event_date, event_name, COUNT(event_name) AS event_count
+  FROM `analytics_xxxxxx.new_events`
+  GROUP BY user_pseudo_id, parsed_event_date, event_name
+)
+WHERE event_count > 1
+-- "and" utesluta events som inte är intressanta? Går att fitrera i looker. 
+ORDER BY parsed_event_date;
+
+-- vill ha reda på vad ovan query har för relation till device och region. behöver jag göra en CTE för ovan?
+select device
+FROM `analytics_xxxxxx.new_events`
+limit 10;
+
+--nested query so count events for useres more than 2 and excludes dates
+SELECT user_pseudo_id, parsed_event_date, event_count, event_name
+FROM (
+  SELECT user_pseudo_id, parsed_event_date, event_name, COUNT(event_name) AS event_count
+  FROM `analytics_xxxxxx.new_events`
+  where DATE(parsed_event_date) NOT IN ('2023-09-03', '2023-09-04')
+  GROUP BY user_pseudo_id, parsed_event_date, event_name
+)
+WHERE event_count > 1
+ORDER BY parsed_event_date;
+
+
+----what cities has the most user engagement events?
+##user_engagement_per_city_date
+select geo.city, COUNT(event_name) as events, event_name, parsed_event_date
+from `analytics_xxxxxx.new_events`
+WHERE event_name = 'user_engagement'
+group by geo.city, parsed_event_date, event_name
+order by parsed_event_date asc
