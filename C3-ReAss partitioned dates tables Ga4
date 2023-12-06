@@ -1,0 +1,36 @@
+-->action taken to enable analysis through dates.
+-->an action which should be automated using analytical engineering in the future. 
+
+--creating new events table with correct date format from GA4
+CREATE OR REPLACE TABLE `xxxxxx.analytics_xxxxx.new_events`
+AS
+WITH
+  events AS (
+    SELECT
+      event_date,
+      PARSE_DATE("%Y%m%d", event_date) AS parsed_event_date,
+      event_name
+    FROM
+      `analytics_xxxxxx.events_*`
+  )
+SELECT
+  parsed_event_date AS event_date,
+  event_name
+FROM
+  events;
+
+--creating new pseudo_user table with correct date format from GA4
+CREATE OR REPLACE TABLE `individualproject-398014.analytics_401142256.new_pseudonymous_users`
+AS
+WITH
+  users AS (
+    SELECT
+      *,
+      PARSE_DATE("%Y%m%d", last_updated_date) AS parsed_last_updated_date
+    FROM
+      `analytics_401142256.pseudonymous_users_*`
+  )
+SELECT
+  *
+FROM
+  users;
