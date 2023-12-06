@@ -1,0 +1,230 @@
+--#####counting total clicks and impressions######
+select sum(sum_metrics_clicks) as sum_of_clicks, sum(sum_metrics_impressions) as sum_of_impressions
+from(
+select 
+SUM(metrics_clicks) as sum_metrics_clicks,
+sum(metrics_impressions) as sum_metrics_impressions, _DATA_DATE, segments_device
+from `analytics_xxxxxx.ads_AdBasicStats_xxxxxx`
+group by segments_device, _DATA_DATE
+order by _DATA_DATE)
+
+--#####counting clicks and impressions per day. #######
+select 
+SUM(metrics_clicks) as sum_metrics_clicks, 
+sum(metrics_impressions) as sum_metrics_impressions, _DATA_DATE
+from `analytics_xxxxxx.ads_AdBasicStats_xxxxxx`
+group by _DATA_DATE
+order by _DATA_DATE
+
+
+-- how many clicks and impressions per date and device
+--use for filtering impressions and clicks per device
+--"impressions_clicks_device"
+select 
+SUM(metrics_clicks) as sum_metrics_clicks, 
+sum(metrics_impressions) as sum_metrics_impressions, _DATA_DATE, segments_device
+from `analytics_xxxxxx.ads_AdBasicStats_xxxxxx`
+group by segments_device, _DATA_DATE
+order by _DATA_DATE
+
+
+--counting total clicks and impressions. using LATEST DATE to verify above querIES
+select
+SUM(metrics_clicks) as sum_metrics_clicks, 
+sum(metrics_impressions) as sum_metrics_impressions, _LATEST_DATE
+from `analytics_xxxxxx.ads_AdBasicStats_xxxxxx`
+group by _LATEST_DATE
+------------------------------------------------------------------------------------------------------
+--what defines a poor/good performing keyword?
+select *
+from `analytics_xxxxxx.ads_ClickStats_xxxxxx`
+
+-- check the clicks table with click_view_keyword_info_match_type. See if this can be inserted and grouped with any of the above.
+-->> to see how many of all clicks and impressions were of the broad match type.
+
+--only 5 unspecified KW match type
+select click_view_keyword_info_match_type
+from `analytics_xxxxxx.ads_ClickStats_xxxxxx`
+where click_view_keyword_info_match_type NOT LIKE 'BROAD'
+
+--Most of KW are through broad match. Maybe change this match type depending on keyword performance?
+select click_view_keyword_info_match_type
+from `analytics_xxxxxx.ads_ClickStats_xxxxxx`
+where click_view_keyword_info_match_type  LIKE 'BROAD'
+
+---How do we distinguish a bad/good perforing keyword?
+-- can I count the amount of times a particular keyword were clicked or impressionated? per date
+select *
+from `analytics_xxxxxx.ads_ClickStats_xxxxxx`
+
+-- use the following to create a chart of the most used keywords.
+---> maybe utilize the scatter chart in Looker and filter it based on keywords?
+-----> how many times they have been clicked, where they have been clicked, how much it has cost.
+
+select count(click_view_keyword_info_text) as kw_times_clicked,
+  click_view_keyword_info_text, campaign_id, _DATA_DATE
+from `analytics_xxxxxx.ads_ClickStats_xxxxxx`
+group by click_view_keyword_info_text, _DATA_DATE, campaign_id
+order by _DATA_DATE asc
+--adds up
+select SUM(kw_times_clicked)
+from(select count(click_view_keyword_info_text) as kw_times_clicked,
+  click_view_keyword_info_text, campaign_id, _DATA_DATE
+from `analytics_xxxxxx.ads_ClickStats_xxxxxx`
+group by click_view_keyword_info_text, _DATA_DATE, campaign_id
+order by _DATA_DATE asc)
+
+-- checking if I can join per campaign name with clicks and budget stats.
+select*
+from `analytics_xxxxxx.ads_ClickStats_xxxxxx`
+-- campaign ID?
+select *
+from `analytics_xxxxxx.ads_BudgetStats_xxxxxx`
+
+-- both tables have campaign ID.
+----> join them to see costs per day?
+select count(click_view_keyword_info_text) as kw_times_clicked,
+  click_view_keyword_info_text, c.campaign_id, b.campaign_name , c._DATA_DATE,
+from `analytics_xxxxxx.ads_ClickStats_xxxxxx`as c
+join `analytics_xxxxxx.ads_BudgetStats_xxxxxx` as b
+ON c.campaign_id = b.campaign_id
+group by click_view_keyword_info_text, _DATA_DATE, campaign_id, b.campaign_name
+order by _DATA_DATE asc
+
+-- trying to figure out how to obtain the correct total number of clicks. What does kw_times_clicked do?
+----> and why doesn't it add up when I sum kw_times_clicked?
+
+select count(click_view_keyword_info_text) as kw_times_clicked,
+  click_view_keyword_info_text, c.campaign_id, b.campaign_name , c._DATA_DATE,
+from `analytics_xxxxxx.ads_ClickStats_xxxxxx`as c
+join `analytics_xxxxxx.ads_BudgetStats_xxxxxx` as b
+ON c.campaign_id = b.campaign_id
+group by click_view_keyword_info_text, _DATA_DATE, campaign_id, b.campaign_name
+order by _DATA_DATE asc
+
+
+-------------------------
+--date cost per campaign
+select sum(total_clicks)
+from (SELECT
+  campaign_name, 
+  SUM(metrics_clicks) AS total_clicks,
+  SUM(metrics_all_conversions) AS total_conversions,
+  SUM(metrics_all_conversions_value) AS total_conversion_value,
+  ROUND(SUM(metrics_average_cpc/1000000), 2) AS metrics_avg_cpc,
+  ROUND(SUM(metrics_clicks * metrics_average_cpc/1000000),2) as total_date_cost,
+  _DATA_DATE
+FROM `analytics_xxxxxx.ads_BudgetStats_xxxxxx`
+GROUP BY campaign_name, _DATA_DATE
+ORDER BY _DATA_DATE ASC)
+
+-- how can I obtain the total cost for individual keywords per date?
+---> join the above query with the solution below.
+-- budget stats contain information about metrics_ctr, metrics_impressions, metrics_interactions (clicks?), metrics_cost_..., metrics CTR.
+--- Check if it's possible to compare the total cost for metrics_cost_per per date and see how this relates to the number of clicks per KW.
+
+select *
+from `analytics_xxxxxx.ads_BudgetStats_xxxxxx`
+
+select campaign_name, 
+  metrics_clicks,
+  metrics_all_conversions,
+  metrics_all_conversions_value,
+  metrics_average_cpc,
+  _DATA_DATE
+from `analytics_xxxxxx.ads_BudgetStats_xxxxxx`
+order by _DATA_DATE asc
+
+-- join the above with KW info text from basic stats or clicks.
+-- check which columns are relevant to calculate the total cost per day, see if it adds up with reality.
+####### extract data to show how the campaigns perform comparatively #####
+SELECT
+  campaign_name, 
+  SUM(metrics_clicks) AS total_clicks,
+  SUM(metrics_all_conversions) AS total_conversions,
+  SUM(metrics_all_conversions_value) AS total_conversion_value,
+  ROUND(SUM(metrics_average_cpc/1000000), 2) AS metrics_avg_cpc,
+  ROUND(SUM(metrics_clicks * metrics_average_cpc/1000000),2) as total_date_cost,
+  _DATA_DATE
+FROM `analytics_xxxxxx.ads_BudgetStats_xxxxxx`
+GROUP BY campaign_name, _DATA_DATE
+ORDER BY _DATA_DATE ASC;
+
+
+--Adds up
+WITH _campaign_cost as(SELECT
+  campaign_name, 
+  SUM(metrics_clicks) AS total_clicks,
+  SUM(metrics_all_conversions) AS total_conversions,
+  SUM(metrics_all_conversions_value) AS total_conversion_value,
+  ROUND(SUM(metrics_average_cpc/1000000), 2) AS metrics_avg_cpc,
+  ROUND(SUM(metrics_clicks * metrics_average_cpc/1000000),2) as total_date_cost,
+  _DATA_DATE
+FROM `analytics_xxxxxx.ads_BudgetStats_xxxxxx`
+GROUP BY campaign_name, _DATA_DATE
+ORDER BY _DATA_DATE ASC)
+
+select SUM(_campaign_cost.total_date_cost)
+from _campaign_cost
+
+-- it would be interesting to see which keywords peak when costs peak.
+
+
+--Below query, how can I distinctify the dates and count the amount of times that keyword was used that particular date.
+####### use to display the number of times a keyword is used per date. ############# leave device for filtering. 
+--KW_frequency_date--
+SELECT
+  click_view_keyword_info_text,
+  _DATA_DATE,
+  segments_device,
+  COUNT(*) AS keyword_count_per_date
+FROM `analytics_xxxxxx.ads_ClickStats_xxxxxx` AS Clicks
+GROUP BY click_view_keyword_info_text, _DATA_DATE, segments_device
+ORDER BY _DATA_DATE ASC;
+
+--adds up? YES
+select sum(keyword_count_per_date)
+from(
+SELECT
+  click_view_keyword_info_text,
+  _DATA_DATE,
+  segments_device,
+  COUNT(*) AS keyword_count_per_date
+FROM `analytics_xxxxxx.ads_ClickStats_xxxxxx` AS Clicks
+GROUP BY click_view_keyword_info_text, _DATA_DATE, segments_device
+ORDER BY _DATA_DATE ASC);
+
+-------------------
+
+-- I want to see the ratio of segments device per keyword per date. 
+SELECT
+  COUNT(click_view_keyword_info_text) AS keyword_count,
+  segments_device,
+  segments_date,
+  click_view_keyword_info_text
+FROM `analytics_xxxxxx.ads_ClickStats_xxxxxx`
+GROUP BY segments_device, segments_date, click_view_keyword_info_text
+ORDER BY segments_date ASC, segments_device, keyword_count asc;
+
+
+-- I want to count the keywords per device and date.
+-- can be used for initial insight, which then is dessicated using above query to see what the exact used keywords were. which one was used most. 
+--then see how the interactions were during that time. 
+
+WITH keywordCount AS (
+  SELECT
+    COUNT(click_view_keyword_info_text) AS keyword_count,
+    segments_device,
+    segments_date
+  FROM `analytics_xxxxxx.ads_ClickStats_xxxxxx`
+  GROUP BY segments_device, segments_date
+  ORDER BY segments_date ASC, segments_device, keyword_count DESC
+)
+
+SELECT
+  SUM(keyword_count) AS total_clicks,
+  segments_device,
+  segments_date
+FROM keywordCount
+GROUP BY segments_device, segments_date
+ORDER BY segments_date ASC, segments_device;
